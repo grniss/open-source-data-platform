@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-catalog
+  labels: { tier: catalog, managed-by: helmfile }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: query-engines
+  labels: { tier: query, managed-by: helmfile }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spark-jobs
+  labels: { tier: query, managed-by: helmfile }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orchestration
+  labels: { tier: orchestration, managed-by: helmfile }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: storage
+  labels: { tier: storage, managed-by: helmfile }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bi
+  labels: { tier: bi, managed-by: helmfile }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels: { tier: observability, managed-by: helmfile }

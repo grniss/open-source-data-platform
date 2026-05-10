@@ -1,0 +1,36 @@
+image:
+  repository: apache/polaris
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8181
+
+persistence:
+  storage:
+    type: s3
+    bucket: lakehouse
+    region: us-east-1
+
+auth:
+  tokenBroker:
+    type: rsa-key-pair
+
+bootstrap:
+  realms:
+    - name: default-realm
+      principals:
+        - name: root
+          credentials:
+            clientId: root
+            clientSecret: secret
+
+resources:
+  requests: { cpu: "200m", memory: "512Mi" }
+  limits:   { cpu: "1",    memory: "2Gi" }
+
+serviceMonitor:
+  enabled: true

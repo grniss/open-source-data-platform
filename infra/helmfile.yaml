@@ -1,0 +1,105 @@
+repositories:
+  - name: trino
+    url: https://trinodb.github.io/charts
+  - name: spark-operator
+    url: https://kubeflow.github.io/spark-operator
+  - name: apache-airflow
+    url: https://airflow.apache.org
+  - name: superset
+    url: https://apache.github.io/superset
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+  - name: opencost
+    url: https://opencost.github.io/opencost-helm-chart
+  - name: minio
+    url: https://charts.min.io/
+  - name: polaris
+    url: https://downloads.apache.org/polaris/helm-chart/
+
+environments:
+  local:
+    values:
+      - envs/local.yaml
+  prod:
+    values:
+      - envs/prod.yaml
+
+---
+
+helmDefaults:
+  wait: true
+  timeout: 1800     # 30 min — Airflow migrations can take >10 min on local kind
+  createNamespace: true
+  atomic: false
+
+releases:
+
+  # -------- Catalog (Iceberg REST + RBAC) --------
+  - name: polaris
+    namespace: data-catalog
+    chart: apache-polaris/polaris
+    version: 1.4.1
+    values: [helm/polaris/values.yaml]
+
+  # -------- Query Engines --------
+  - name: trino
+    namespace: query-engines
+    chart: trino/trino
+    version: 0.30.0
+    values: [helm/trino/values.yaml]
+    needs: [data-catalog/polaris]
+
+  - name: spark-operator
+    namespace: spark-jobs
+    chart: spark-operator/spark-operator
+    version: 1.4.6
+    values: [helm/spark-operator/values.yaml]
+
+  # -------- Orchestration & Modeling --------
+  - name: airflow
+    namespace: orchestration
+    chart: apache-airflow/airflow
+    version: 1.21.0
+    values: [helm/airflow/values.yaml]
+    needs:
+      - query-engines/trino
+      - spark-jobs/spark-operator
+
+  # -------- Local S3 (dev/test only — replace with real S3 in prod) --------
+  - name: minio
+    namespace: storage
+    chart: minio/minio
+    version: 5.4.0     # verify latest at https://artifacthub.io/packages/helm/minio/minio
+    values: [helm/minio/values.yaml]
+    condition: minio.enabled
+
+  # -------- Visualization --------
+  - name: superset
+    namespace: bi
+    chart: superset/superset
+    version: 0.15.5
+    values: [helm/superset/values.yaml]
+    needs: [query-engines/trino]
+
+  # -------- Observability --------
+  - name: kube-prometheus-stack
+    namespace: observability
+    chart: prometheus-community/kube-prometheus-stack
+    version: 65.5.0
+    values: [helm/kube-prometheus-stack/values.yaml]
+
+  - name: loki
+    namespace: observability
+    chart: grafana/loki
+    version: 6.18.0
+    values: [helm/loki/values.yaml]
+    needs: [observability/kube-prometheus-stack]
+
+  - name: opencost
+    namespace: observability
+    chart: opencost/opencost
+    version: 1.42.0
+    values: [helm/opencost/values.yaml]
+    needs: [observability/kube-prometheus-stack]

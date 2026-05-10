@@ -1,0 +1,78 @@
+# Custom image with psycopg2-binary + trino[sqlalchemy] baked in.
+# Built from infra/images/superset/Dockerfile and loaded into kind via:
+#   kind load docker-image lakehouse/superset:5.0.0 --name data-platform
+image:
+  repository: lakehouse/superset
+  tag: "5.0.0"
+  pullPolicy: IfNotPresent
+
+# Superset 5.x refuses to start with the chart's default placeholder SECRET_KEY.
+# Local-dev value below; in prod, source from a sealed secret / external secret manager.
+extraEnv:
+  SUPERSET_SECRET_KEY: "local-dev-only-7c4f9b3e2a8d6f1c5e9a0b2d4f6a8c1e3b5d7f9a"
+
+# Cache dashboard queries — kills redundant fan-out
+configOverrides:
+  cache: |
+    CACHE_CONFIG = {
+      "CACHE_TYPE": "RedisCache",
+      "CACHE_DEFAULT_TIMEOUT": 300,
+      "CACHE_KEY_PREFIX": "superset_",
+      "CACHE_REDIS_HOST": "superset-redis-master",
+      "CACHE_REDIS_PORT": 6379,
+      "CACHE_REDIS_DB": 1,
+    }
+    DATA_CACHE_CONFIG = CACHE_CONFIG
+  features: |
+    FEATURE_FLAGS = {
+      "ENABLE_TEMPLATE_PROCESSING": True,
+      "DASHBOARD_NATIVE_FILTERS": True,
+    }
+
+# Pre-register Trino as a database with user impersonation enabled
+# so Polaris RBAC is enforced via the logged-in user's identity.
+extraConfigs:
+  trino-database.yaml: |
+    databases:
+      - database_name: Trino-Lakehouse
+        sqlalchemy_uri: trino://trino.query-engines.svc.cluster.local:8080/iceberg
+        impersonate_user: true
+        cache_timeout: 300
+
+postgresql:
+  enabled: true
+  # Bitnami moved free public images to bitnamilegacy/* in Aug 2025; the old
+  # bitnami/* path 404s. Override here so the bundled subchart pulls successfully.
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+  primary:
+    resources:
+      requests: { cpu: "100m", memory: "256Mi" }
+      limits:   { cpu: "500m", memory: "512Mi" }
+
+redis:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis
+  master:
+    resources:
+      requests: { cpu: "50m",  memory: "64Mi" }
+      limits:   { cpu: "200m", memory: "128Mi" }
+
+resources:
+  requests: { cpu: "100m", memory: "384Mi" }
+  limits:   { cpu: "500m", memory: "768Mi" }
+
+# Celery worker. The chart default forks 8 processes (`concurrency=8`) which
+# OOMs at ~128Mi limits — drop to 2 for local dev and give it 768Mi so it
+# can boot and run a couple tasks comfortably.
+supersetWorker:
+  command:
+    - /bin/sh
+    - -c
+    - "celery --app=superset.tasks.celery_app:app worker --pool=prefork -O fair -c 2"
+  resources:
+    requests: { cpu: "100m", memory: "384Mi" }
+    limits:   { cpu: "500m", memory: "768Mi" }

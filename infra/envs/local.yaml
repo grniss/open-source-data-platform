@@ -1,0 +1,16 @@
+cluster: local-kind
+domain: local.test
+
+# Local-only: bundled MinIO. In prod, set minio.enabled=false and point to real S3.
+minio:
+  enabled: true
+
+storage:
+  s3Endpoint: http://minio.storage.svc.cluster.local:9000
+  s3Bucket: lakehouse
+  s3AccessKey: minio
+  s3SecretKey: minio12345
+resources:
+  small: { cpu: "200m", memory: "512Mi" }
+  medium: { cpu: "1",    memory: "2Gi" }
+  large:  { cpu: "2",    memory: "4Gi" }

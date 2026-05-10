@@ -1,0 +1,14 @@
+opencost:
+  exporter:
+    defaultClusterId: local-kind
+  prometheus:
+    internal:
+      enabled: true
+      namespaceName: observability
+      serviceName: kube-prometheus-stack-prometheus
+      port: 9090
+  ui:
+    enabled: true
+
+serviceMonitor:
+  enabled: true

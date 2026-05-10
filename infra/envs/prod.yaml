@@ -1,0 +1,14 @@
+cluster: prod-eks
+domain: data.example.com
+
+# Real S3 in prod — local MinIO not deployed.
+minio:
+  enabled: false
+
+storage:
+  s3Bucket: lakehouse-prod
+  s3Region: us-east-1
+resources:
+  small: { cpu: "500m", memory: "1Gi" }
+  medium: { cpu: "2",    memory: "4Gi" }
+  large:  { cpu: "8",    memory: "16Gi" }

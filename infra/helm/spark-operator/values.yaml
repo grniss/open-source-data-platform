@@ -1,0 +1,25 @@
+sparkJobNamespace: spark-jobs
+
+webhook:
+  enable: true
+
+# Allow operator to launch Spark applications across namespaces
+controller:
+  workers: 2
+
+metrics:
+  enable: true
+  portName: metrics
+  port: 10254
+
+batchScheduler:
+  enable: false
+
+# Default service account used by submitted SparkApplications
+sparkServiceAccount:
+  create: true
+  name: spark
+
+resources:
+  requests: { cpu: "100m", memory: "256Mi" }
+  limits:   { cpu: "500m", memory: "1Gi" }

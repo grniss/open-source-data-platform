@@ -1,0 +1,63 @@
+executor: KubernetesExecutor
+
+# Run the DB migrations as a regular Kubernetes Job (NOT a Helm post-install
+# hook). With useHelmHooks=true (default), the chart fires the migrate-database
+# Job *after* helm --wait succeeds — but --wait blocks on scheduler/api-server
+# pods that are themselves blocked on `wait-for-airflow-migrations`. Classic
+# deadlock. As a regular Job it runs immediately and unblocks the dependents.
+migrateDatabaseJob:
+  useHelmHooks: false
+  applyCustomEnv: false
+
+createUserJob:
+  useHelmHooks: false
+  applyCustomEnv: false
+
+# gitSync disabled until the application repo exists; DAGs can be loaded later.
+dags:
+  gitSync:
+    enabled: false
+
+env:
+  - name: AIRFLOW__CORE__LOAD_EXAMPLES
+    value: "False"
+  # OpenLineage emission disabled — re-enable by setting AIRFLOW__OPENLINEAGE__TRANSPORT
+  # to point at a Marquez (or other OpenLineage) endpoint when one is deployed.
+
+extraPipPackages:
+  - apache-airflow-providers-trino
+  - apache-airflow-providers-cncf-kubernetes
+  - apache-airflow-providers-apache-spark
+  - dbt-trino
+  - dbt-spark
+  - elementary-data
+
+webserver:
+  service:
+    type: ClusterIP
+  resources:
+    requests: { cpu: "100m", memory: "384Mi" }
+    limits:   { cpu: "500m", memory: "768Mi" }
+
+scheduler:
+  resources:
+    requests: { cpu: "200m", memory: "768Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }
+
+triggerer:
+  enabled: false                    # local: skip — no deferrable operators in use
+
+postgresql:
+  enabled: true
+  # Bitnami moved free public images to bitnamilegacy/* in Aug 2025; the old
+  # bitnami/* path 404s. Override here so the bundled subchart pulls successfully.
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+  primary:
+    resources:
+      requests: { cpu: "100m", memory: "256Mi" }
+      limits:   { cpu: "500m", memory: "512Mi" }
+
+serviceMonitor:
+  enabled: false                    # off until kube-prometheus-stack is steady

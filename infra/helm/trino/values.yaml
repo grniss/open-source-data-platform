@@ -1,0 +1,40 @@
+image:
+  tag: "459"
+
+server:
+  workers: 0    # coordinator-only for local; coordinator handles small queries alone
+  config:
+    query:
+      maxMemory: "1GB"
+      maxMemoryPerNode: "512MB"
+
+coordinator:
+  resources:
+    requests: { cpu: "300m", memory: "1Gi" }
+    limits:   { cpu: "2",    memory: "2Gi" }
+
+worker:
+  resources:
+    requests: { cpu: "300m", memory: "1Gi" }
+    limits:   { cpu: "1",    memory: "2Gi" }
+
+# Iceberg connector pointing at Polaris REST catalog
+catalogs:
+  iceberg: |
+    connector.name=iceberg
+    iceberg.catalog.type=rest
+    iceberg.rest-catalog.uri=http://polaris.data-catalog.svc.cluster.local:8181/api/catalog
+    iceberg.rest-catalog.warehouse=lakehouse
+    fs.native-s3.enabled=true
+    s3.endpoint=http://minio.storage.svc.cluster.local:9000
+    s3.region=us-east-1
+    s3.path-style-access=true
+
+# Resource groups + query-history event listener intentionally disabled for local
+# bring-up. The chart wires those properties incorrectly into config.properties
+# (causing "Configuration property ... was not used" errors). Re-add via the
+# chart's `coordinator.additionalConfigFiles` once we deploy a query-history
+# collector and need queue routing.
+
+serviceMonitor:
+  enabled: false   # off until kube-prometheus-stack CRDs proven stable

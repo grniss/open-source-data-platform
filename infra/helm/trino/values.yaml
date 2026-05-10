@@ -24,12 +24,18 @@ catalogs:
     connector.name=iceberg
     iceberg.catalog.type=rest
     iceberg.rest-catalog.uri=http://polaris.data-catalog.svc.cluster.local:8181/api/catalog
-    iceberg.rest-catalog.warehouse=lakehouse
+    iceberg.rest-catalog.warehouse=dp-lmwn
+    iceberg.rest-catalog.security=OAUTH2
+    iceberg.rest-catalog.oauth2.credential=root:localdev-polaris-root-secret
+    iceberg.rest-catalog.oauth2.scope=PRINCIPAL_ROLE:ALL
+    iceberg.rest-catalog.vended-credentials-enabled=false
+    iceberg.unique-table-location=true
     fs.native-s3.enabled=true
+    s3.region=ap-southeast-1
     s3.endpoint=http://minio.storage.svc.cluster.local:9000
-    s3.region=us-east-1
     s3.path-style-access=true
-
+    s3.aws-access-key=minio
+    s3.aws-secret-key=minio12345
 # Resource groups + query-history event listener intentionally disabled for local
 # bring-up. The chart wires those properties incorrectly into config.properties
 # (causing "Configuration property ... was not used" errors). Re-add via the

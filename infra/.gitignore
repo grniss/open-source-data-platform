@@ -3,3 +3,5 @@ charts/
 *.lock.bak
 .envrc
 secrets.*.yaml
+
+Chart.lock

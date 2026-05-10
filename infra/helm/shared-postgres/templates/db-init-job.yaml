@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-db-init
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: db-init
+          image: docker.io/bitnamilegacy/postgresql:16
+          env:
+            - name: PGPASSWORD
+              value: {{ .Values.postgresql.auth.postgresPassword }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              echo "Waiting for PostgreSQL..."
+
+              until pg_isready -h {{ .Release.Name }} -U postgres; do
+                sleep 2
+              done
+
+              echo "Creating databases..."
+
+              {{- range .Values.databases }}
+
+              echo "DB: {{ .name }}"
+
+              psql -h {{ $.Release.Name }} \
+                   -U postgres \
+                   -d postgres \
+                   -c "CREATE DATABASE {{ .name }};" || true
+
+              psql -h {{ $.Release.Name }} \
+                   -U postgres \
+                   -d postgres \
+                   -c "CREATE USER {{ .user }} WITH ENCRYPTED PASSWORD '{{ .password }}';" || true
+
+              psql -h {{ $.Release.Name }} \
+                   -U postgres \
+                   -d postgres \
+                   -c "GRANT ALL PRIVILEGES ON DATABASE {{ .name }} TO {{ .user }};" || true
+
+              {{- end }}

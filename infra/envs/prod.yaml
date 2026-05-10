@@ -7,7 +7,7 @@ minio:
 
 storage:
   s3Bucket: lakehouse-prod
-  s3Region: us-east-1
+  s3Region: ap-southeast-1
 resources:
   small: { cpu: "500m", memory: "1Gi" }
   medium: { cpu: "2",    memory: "4Gi" }

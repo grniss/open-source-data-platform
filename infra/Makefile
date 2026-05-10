@@ -6,7 +6,8 @@ KIND_CONFIG  := kind/cluster.yaml
 
 .PHONY: help check-tools cluster-up cluster-down namespaces \
         repos diff sync apply destroy status \
-        port-forward-grafana port-forward-superset port-forward-airflow
+        port-forward-grafana port-forward-superset port-forward-airflow \
+        polaris-mount-catalog
 
 help:
 	@echo "Targets:"
@@ -21,6 +22,9 @@ help:
 	@echo "  destroy ENV=local    Uninstall all releases"
 	@echo "  status               List installed releases per namespace"
 	@echo "  port-forward-*       Convenience port-forwards (Grafana, Superset, Airflow)"
+	@echo ""
+	@echo "Polaris ops (run AFTER sync):"
+	@echo "  polaris-mount-catalog  Bootstrap realm + apply desired-state catalog YAMLs"
 
 check-tools:
 	@command -v kind     >/dev/null || { echo "kind not found";     exit 1; }
@@ -64,3 +68,10 @@ port-forward-superset:
 
 port-forward-airflow:
 	kubectl -n orchestration port-forward svc/airflow-webserver 8081:8080
+
+# -------- Polaris catalog mount --------
+# Single command: applies Secrets, bootstraps the realm if needed, and reconciles
+# every catalog declared under helm/polaris/files/desired-state/catalogs/.
+# Run AFTER `make sync ENV=local`.
+polaris-mount-catalog:
+	./scripts/polaris-mount-catalog-2.sh

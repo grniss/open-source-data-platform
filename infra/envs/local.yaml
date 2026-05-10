@@ -7,7 +7,7 @@ minio:
 
 storage:
   s3Endpoint: http://minio.storage.svc.cluster.local:9000
-  s3Bucket: lakehouse
+  s3Bucket: dp-lmwn
   s3AccessKey: minio
   s3SecretKey: minio12345
 resources:

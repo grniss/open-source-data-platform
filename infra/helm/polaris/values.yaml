@@ -1,6 +1,7 @@
 image:
+  # Pin to 1.4.1 (matches admin-tool image used by the bootstrap script).
   repository: apache/polaris
-  tag: latest
+  tag: "1.4.1"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -9,28 +10,57 @@ service:
   type: ClusterIP
   port: 8181
 
+# Polaris's own metadata DB — backed by the polaris-postgres release.
+# The polaris-pg-creds Secret is pre-created by `make polaris-prereqs` and is
+# also consumed by the Postgres chart (auth.existingSecret).
 persistence:
-  storage:
-    type: s3
-    bucket: lakehouse
-    region: us-east-1
+  type: relational-jdbc
+  relationalJdbc:
+    secret:
+      name: polaris-pg-creds
+      username: username
+      password: password
+      jdbcUrl: jdbcUrl
 
-auth:
-  tokenBroker:
-    type: rsa-key-pair
+# S3/MinIO credentials Polaris uses to vend signed URLs for Iceberg storage.
+storage:
+  secret:
+    name: polaris-minio-creds
+    awsAccessKeyId: accessKeyId
+    awsSecretAccessKey: secretAccessKey
 
-bootstrap:
-  realms:
-    - name: default-realm
-      principals:
-        - name: root
-          credentials:
-            clientId: root
-            clientSecret: secret
+# Internal auth with RSA-signed tokens; principals are bootstrapped via the
+# polaris-admin-tool Job (see scripts/polaris-bootstrap.sh).
+authentication:
+  type: internal
+  tokenService:
+    type: default
 
 resources:
   requests: { cpu: "200m", memory: "512Mi" }
-  limits:   { cpu: "1",    memory: "2Gi" }
+  limits:   { cpu: "1",    memory: "1Gi" }
+
+extraEnv:
+  - name: AWS_ENDPOINT_URL_S3
+    value: http://minio.storage.svc.cluster.local:9000
+  - name: AWS_ENDPOINT_URL_STS
+    value: http://minio.storage.svc.cluster.local:9000
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: polaris-minio-creds
+        key: accessKeyId
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: polaris-minio-creds
+        key: secretAccessKey
+
+
+features:
+  ALLOW_SETTING_S3_ENDPOINTS: "true"
+  SUPPORTED_CATALOG_STORAGE_TYPES:
+    - S3
 
 serviceMonitor:
-  enabled: true
+  enabled: false

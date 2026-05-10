@@ -1,0 +1,37 @@
+# One-shot Job that initializes Polaris's realm + root principal in the
+# Postgres metadata DB. Run via `make polaris-mount-catalog`.
+# Idempotency: the script deletes any prior Job before apply.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: polaris-bootstrap
+  namespace: data-catalog
+  labels:
+    app.kubernetes.io/component: polaris-bootstrap
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: bootstrap
+          image: apache/polaris-admin-tool:1.4.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - bootstrap
+            - --realm=POLARIS
+            - --credential=POLARIS,$(ROOT_CLIENT_ID),$(ROOT_CLIENT_SECRET)
+          env:
+            - name: ROOT_CLIENT_ID
+              valueFrom: { secretKeyRef: { name: polaris-root-creds, key: clientId } }
+            - name: ROOT_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: polaris-root-creds, key: clientSecret } }
+            - name: POLARIS_PERSISTENCE_TYPE
+              value: relational-jdbc
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              valueFrom: { secretKeyRef: { name: polaris-pg-creds, key: jdbcUrl } }
+            - name: QUARKUS_DATASOURCE_USERNAME
+              valueFrom: { secretKeyRef: { name: polaris-pg-creds, key: username } }
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              valueFrom: { secretKeyRef: { name: polaris-pg-creds, key: password } }

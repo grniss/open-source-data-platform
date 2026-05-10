@@ -1,0 +1,18 @@
+# Source-of-truth declaration for the "lakehouse" Iceberg catalog.
+# Keep this file pure spec — no credentials, no inline secrets. The reconciler
+# Job injects S3 access keys from the polaris-minio-creds Secret at apply time.
+#
+# To add another catalog, drop a new file here and re-run `make polaris-mount-catalog`.
+
+name: dp-lmwn
+type: INTERNAL
+properties:
+  default-base-location: s3://dp-lmwn/
+
+storage:
+  storageType: S3
+  endpoint: http://minio.storage.svc.cluster.local:9000
+  region: ap-southeast-1
+  pathStyleAccess: true
+  allowedLocations:
+    - s3://dp-lmwn/*

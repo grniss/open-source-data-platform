@@ -1,0 +1,11 @@
+apiVersion: v2
+name: shared-postgres
+description: Shared PostgreSQL with per-service database init
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: postgresql
+    version: "16.2.1"
+    repository: https://charts.bitnami.com/bitnami
+    alias: postgresql

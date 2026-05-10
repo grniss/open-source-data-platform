@@ -17,6 +17,8 @@ repositories:
     url: https://charts.min.io/
   - name: polaris
     url: https://downloads.apache.org/polaris/helm-chart/
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
 
 environments:
   local:
@@ -37,11 +39,17 @@ helmDefaults:
 releases:
 
   # -------- Catalog (Iceberg REST + RBAC) --------
+  - name: shared-postgresql
+    namespace: storage
+    chart: ./helm/shared-postgres
+    values: [helm/shared-postgres/values.yaml]
+
   - name: polaris
     namespace: data-catalog
     chart: apache-polaris/polaris
     version: 1.4.1
     values: [helm/polaris/values.yaml]
+    needs: [storage/shared-postgresql]
 
   # -------- Query Engines --------
   - name: trino

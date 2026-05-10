@@ -1,0 +1,26 @@
+postgresql:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+
+  auth:
+    postgresPassword: superadminpassword
+    username: postgres
+    database: postgres
+
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests: { cpu: "100m", memory: "256Mi" }
+      limits:   { cpu: "500m", memory: "512Mi" }
+
+databases:
+  - name: polaris_db
+    user: polaris_user
+    password: polaris_pass
+
+  - name: service_a_db
+    user: service_a_user
+    password: service_a_pass

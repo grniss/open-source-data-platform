@@ -42,5 +42,15 @@ catalogs:
 # chart's `coordinator.additionalConfigFiles` once we deploy a query-history
 # collector and need queue routing.
 
+coordinator:
+  additionalConfigFiles:
+
+    # OPA access-control: routes every authorization check to OPA.
+    # Policy: application/opa/policies/trino.rego
+    # Data:   pushed by Airflow rbac_sync DAG to OPA /v1/data/trino/rbac
+    access-control.properties: |
+      access-control.name=opa
+      opa.policy.uri=http://opa-opa-kube-mgmt.policy.svc.cluster.local:8181/v1/data/trino/allow
+
 serviceMonitor:
   enabled: false   # off until kube-prometheus-stack CRDs proven stable

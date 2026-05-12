@@ -44,7 +44,7 @@ data:
           "realmRoles": ["analyst"]
         },
         {
-          "username": "admin1",
+          "username": "admin",
           "enabled": true,
           "credentials": [
             {

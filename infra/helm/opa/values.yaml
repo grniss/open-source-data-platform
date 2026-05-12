@@ -14,6 +14,7 @@ bootstrapPolicies:
       input.context.identity.groups[_] == "analyst"
     }
 
+useHttps: false
 
 # Disable kube-mgmt features
 management:
@@ -24,3 +25,8 @@ authz:
 
 tls:
   enabled: false
+
+mgmt:
+  startupProbe:
+    httpGet:
+      scheme: HTTP

@@ -15,5 +15,6 @@ USER root
 RUN pip install --no-cache-dir \
       --target=/app/.venv/lib/python3.10/site-packages \
       psycopg2-binary==2.9.10 \
-      "trino[sqlalchemy]"==0.330.0
+      "trino[sqlalchemy]"==0.330.0 \
+      authlib==1.3.0
 USER superset

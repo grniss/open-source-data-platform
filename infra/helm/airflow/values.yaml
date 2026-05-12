@@ -25,12 +25,12 @@ env:
   # to point at a Marquez (or other OpenLineage) endpoint when one is deployed.
 
 extraPipPackages:
-  - apache-airflow-providers-trino
-  - apache-airflow-providers-cncf-kubernetes
-  - apache-airflow-providers-apache-spark
-  - dbt-trino
-  - dbt-spark
-  - elementary-data
+  - apache-airflow-providers-trino==6.5.2
+  - apache-airflow-providers-cncf-kubernetes==10.16.1
+  - apache-airflow-providers-apache-spark==6.0.1
+  - dbt-trino==1.10.1
+  - dbt-spark==1.10.1
+  - elementary-data==0.23.4
 
 webserver:
   service:

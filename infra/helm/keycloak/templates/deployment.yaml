@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: keycloak
+
+  template:
+    metadata:
+      labels:
+        app: keycloak
+
+    spec:
+      volumes:
+        - name: realm-import
+          configMap:
+            name: keycloak-realm-import
+
+      containers:
+        - name: keycloak
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+
+          args:
+            - start-dev
+            - --import-realm
+
+          volumeMounts:
+            - name: realm-import
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+
+          env:
+            - name: KC_DB
+              value: postgres
+
+            - name: KC_DB_URL
+              value: jdbc:postgresql://{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}
+
+            - name: KC_DB_USERNAME
+              value: {{ .Values.database.user }}
+
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: KC_DB_PASSWORD
+
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: KEYCLOAK_ADMIN
+
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: KEYCLOAK_ADMIN_PASSWORD
+
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+
+            - name: KC_HOSTNAME
+              value: http://localhost:8080
+
+            - name: KC_PROXY
+              value: edge
+
+            - name: KC_HTTP_ENABLED
+              value: "true"
+
+          ports:
+            - containerPort: 8080

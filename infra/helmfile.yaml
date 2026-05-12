@@ -19,6 +19,8 @@ repositories:
     url: https://downloads.apache.org/polaris/helm-chart/
   - name: bitnami
     url: https://charts.bitnami.com/bitnami
+  - name: openpolicyagent
+    url: https://open-policy-agent.github.io/kube-mgmt/charts
 
 environments:
   local:
@@ -51,13 +53,24 @@ releases:
     values: [helm/polaris/values.yaml]
     needs: [storage/shared-postgresql]
 
+  # -------- Policy Engine --------
+  - name: opa
+    namespace: policy
+    chart: openpolicyagent/opa-kube-mgmt
+    values: [helm/opa/values.yaml]
+
+  - name: keycloak
+    namespace: auth
+    chart: ./helm/keycloak
+    needs: [storage/shared-postgresql]
+
   # -------- Query Engines --------
   - name: trino
     namespace: query-engines
     chart: trino/trino
     version: 0.30.0
     values: [helm/trino/values.yaml]
-    needs: [data-catalog/polaris]
+    needs: [data-catalog/polaris, policy/opa]
 
   - name: spark-operator
     namespace: spark-jobs

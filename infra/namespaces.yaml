@@ -37,5 +37,11 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: policy
+  labels: { tier: policy, managed-by: helmfile }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: observability
   labels: { tier: observability, managed-by: helmfile }

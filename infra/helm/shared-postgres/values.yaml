@@ -21,6 +21,6 @@ databases:
     user: polaris_user
     password: polaris_pass
 
-  - name: service_a_db
-    user: service_a_user
-    password: service_a_pass
+  - name: keycloak_db
+    user: keycloak_user
+    password: keycloak_pass

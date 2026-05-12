@@ -1,0 +1,26 @@
+bootstrapPolicies:
+  trino.rego: |
+    package trino
+
+    import rego.v1
+
+    default allow := false
+
+    allow := true if {
+      input.context.identity.user == "admin"
+    }
+
+    allow := true if {
+      input.context.identity.groups[_] == "analyst"
+    }
+
+
+# Disable kube-mgmt features
+management:
+  enabled: false
+
+authz:
+  enabled: false
+
+tls:
+  enabled: false

@@ -1,0 +1,22 @@
+namespace: auth
+
+image:
+  repository: quay.io/keycloak/keycloak
+  tag: "26.2"
+
+replicaCount: 1
+
+service:
+  port: 8080
+  targetPort: 8080
+
+database:
+  host: shared-postgresql.storage.svc.cluster.local
+  port: 5432
+  name: keycloak_db
+  user: keycloak_user
+  password: keycloak_pass
+
+admin:
+  user: admin
+  password: admin123

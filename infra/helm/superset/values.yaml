@@ -28,6 +28,30 @@ configOverrides:
       "ENABLE_TEMPLATE_PROCESSING": True,
       "DASHBOARD_NATIVE_FILTERS": True,
     }
+  enable_oidc: |
+    from flask_appbuilder.security.manager import AUTH_OAUTH
+
+    AUTH_TYPE = AUTH_OAUTH
+    AUTH_USER_REGISTRATION = True
+    AUTH_USER_REGISTRATION_ROLE = "Gamma"
+
+    OAUTH_PROVIDERS = [
+      {
+        "name": "keycloak",
+        "icon": "fa-key",
+        "token_key": "access_token",
+        "remote_app": {
+          "client_id": "superset",
+          "client_secret": "superset-secret",
+          "api_base_url": "http://keycloak.auth.svc.cluster.local:8080/realms/dp-lmwn/protocol/openid-connect",
+          "access_token_url": "http://keycloak.auth.svc.cluster.local:8080/realms/dp-lmwn/protocol/openid-connect/token",
+          "authorize_url": "http://localhost:8080/realms/dp-lmwn/protocol/openid-connect/auth",
+          "jwks_uri": "http://keycloak.auth.svc.cluster.local:8080/realms/dp-lmwn/protocol/openid-connect/certs",
+          "userinfo_endpoint": "http://keycloak.auth.svc.cluster.local:8080/realms/dp-lmwn/protocol/openid-connect/userinfo",
+          "client_kwargs": {"scope": "openid profile email"}
+        }
+      }
+    ]
 
 # Pre-register Trino as a database with user impersonation enabled
 # so Polaris RBAC is enforced via the logged-in user's identity.
@@ -76,3 +100,6 @@ supersetWorker:
   resources:
     requests: { cpu: "100m", memory: "384Mi" }
     limits:   { cpu: "500m", memory: "768Mi" }
+
+env:
+  OAUTHLIB_INSECURE_TRANSPORT: "1"

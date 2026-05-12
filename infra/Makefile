@@ -7,7 +7,7 @@ KIND_CONFIG  := kind/cluster.yaml
 .PHONY: help check-tools cluster-up cluster-down namespaces \
         repos diff sync apply destroy status \
         port-forward-grafana port-forward-superset port-forward-airflow \
-        polaris-mount-catalog
+        polaris-mount-catalog rbac-publish-configmap trino-apply-password-secret
 
 help:
 	@echo "Targets:"
@@ -24,7 +24,9 @@ help:
 	@echo "  port-forward-*       Convenience port-forwards (Grafana, Superset, Airflow)"
 	@echo ""
 	@echo "Polaris ops (run AFTER sync):"
-	@echo "  polaris-mount-catalog  Bootstrap realm + apply desired-state catalog YAMLs"
+	@echo "  polaris-mount-catalog        Bootstrap realm + apply desired-state catalog YAMLs"
+	@echo "  rbac-publish-configmap       Publish rbac.yaml as a ConfigMap for the rbac_sync DAG"
+	@echo "  trino-apply-password-secret  Create/update trino-password-db Secret from files/password.db"
 
 check-tools:
 	@command -v kind     >/dev/null || { echo "kind not found";     exit 1; }
@@ -70,8 +72,22 @@ port-forward-airflow:
 	kubectl -n orchestration port-forward svc/airflow-webserver 8081:8080
 
 # -------- Polaris catalog mount --------
-# Single command: applies Secrets, bootstraps the realm if needed, and reconciles
-# every catalog declared under helm/polaris/files/desired-state/catalogs/.
-# Run AFTER `make sync ENV=local`.
 polaris-mount-catalog:
-	./scripts/polaris-mount-catalog-2.sh
+	./scripts/polaris-mount-catalog.sh
+
+# -------- RBAC ConfigMap --------
+# Publishes rbac.yaml so the Airflow rbac_sync DAG can read it in-cluster.
+# Re-run whenever rbac.yaml changes.
+rbac-publish-configmap:
+	kubectl -n data-catalog create configmap polaris-rbac-desired-state \
+	  --from-file=rbac.yaml=helm/polaris/files/desired-state/rbac.yaml \
+	  --dry-run=client -o yaml | kubectl apply -f -
+
+# -------- Trino password Secret --------
+# Creates or replaces the trino-password-db Secret from helm/trino/files/password.db.
+# Run AFTER `make sync ENV=local`.
+trino-apply-password-secret:
+	kubectl -n query-engines create secret generic trino-password-db \
+	  --from-file=password.db=helm/trino/files/password.db \
+	  --dry-run=client -o yaml | kubectl apply -f -
+

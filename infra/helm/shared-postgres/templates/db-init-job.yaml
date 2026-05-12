@@ -36,6 +36,11 @@ spec:
               psql -h {{ $.Release.Name }} \
                    -U postgres \
                    -d postgres \
+                   -c "DROP DATABASE IF EXISTS {{ .name }};" || true
+
+              psql -h {{ $.Release.Name }} \
+                   -U postgres \
+                   -d postgres \
                    -c "CREATE DATABASE {{ .name }};" || true
 
               psql -h {{ $.Release.Name }} \
@@ -47,5 +52,15 @@ spec:
                    -U postgres \
                    -d postgres \
                    -c "GRANT ALL PRIVILEGES ON DATABASE {{ .name }} TO {{ .user }};" || true
+
+              psql -h {{ $.Release.Name }} \
+                  -U postgres \
+                  -d {{ .name }} \
+                  -c "GRANT ALL ON SCHEMA public TO {{ .user }};" || true
+
+              psql -h {{ $.Release.Name }} \
+                  -U postgres \
+                  -d {{ .name }} \
+                  -c "ALTER SCHEMA public OWNER TO {{ .user }};" || true
 
               {{- end }}

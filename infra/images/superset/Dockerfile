@@ -3,10 +3,10 @@
 # driver so the runtime image is self-contained — no pip installs at pod start.
 #
 # Build:
-#   docker build -t lakehouse/superset:5.0.0 infra/images/superset/
+#   docker build -t lakehouse/superset:6.0.0 infra/images/superset/
 # Load into kind:
-#   kind load docker-image lakehouse/superset:5.0.0 --name data-platform
-FROM apache/superset:5.0.0
+#   kind load docker-image lakehouse/superset:6.0.0 --name data-platform
+FROM apache/superset:6.0.0
 
 # Superset 5.x's image uses a uv-managed venv at /app/.venv that ships without
 # pip. We install directly into the venv's site-packages via the system pip's

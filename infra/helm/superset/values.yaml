@@ -3,7 +3,7 @@
 #   kind load docker-image lakehouse/superset:5.0.0 --name data-platform
 image:
   repository: lakehouse/superset
-  tag: "5.0.0"
+  tag: "6.0.0"
   pullPolicy: IfNotPresent
 
 # Superset 5.x refuses to start with the chart's default placeholder SECRET_KEY.
@@ -33,11 +33,21 @@ configOverrides:
 
     AUTH_TYPE = AUTH_OAUTH
     AUTH_USER_REGISTRATION = True
-    AUTH_USER_REGISTRATION_ROLE = "Gamma"
+    AUTH_USER_REGISTRATION_ROLE = "Public"
+    AUTH_ROLES_SYNC_AT_LOGIN = True
+    # FAB's built-in keycloak handler reads 'groups' from the userinfo endpoint as role_keys.
+    # Keycloak maps realm roles → 'groups' claim via the protocol mapper in realm-configmap.yaml.
+    AUTH_ROLES_MAPPING = {
+        "admin":            ["Admin"],
+        "analyst":          ["Gamma", "sql_lab"],
+        "dashboard_viewer": ["Gamma"],
+    }
+    AUTH_OAUTH_SAVE_TOKENS = True
 
     OAUTH_PROVIDERS = [
       {
         "name": "keycloak",
+        "save_token": True,
         "icon": "fa-key",
         "token_key": "access_token",
         "remote_app": {
@@ -48,20 +58,83 @@ configOverrides:
           "authorize_url": "http://localhost:8080/realms/dp-lmwn/protocol/openid-connect/auth",
           "jwks_uri": "http://keycloak.auth.svc.cluster.local:8080/realms/dp-lmwn/protocol/openid-connect/certs",
           "userinfo_endpoint": "http://keycloak.auth.svc.cluster.local:8080/realms/dp-lmwn/protocol/openid-connect/userinfo",
-          "client_kwargs": {"scope": "openid profile email"}
+          "client_kwargs": {"scope": "openid profile email roles"}
         }
       }
     ]
 
+    DATABASE_OAUTH2_CLIENTS = {
+      "trino": {
+          "client_id": "trino",
+          "client_secret": "trino-secret",
+          "authorization_uri": "http://localhost:8080/realms/dp-lmwn/protocol/openid-connect/auth",
+          "token_uri": "http://keycloak.auth.svc.cluster.local:8080/realms/dp-lmwn/protocol/openid-connect/token",
+          "scope": "openid profile email groups"
+      }
+    }
+
+  mutate_db_username: |
+    from trino.auth import JWTAuthentication
+    from flask import session
+    import logging
+    
+
+    def DB_CONNECTION_MUTATOR(uri, params, username, security_manager, source):
+      logging.info(f'here from mutator {session}')
+      token = session.get("access_token")
+
+      params.setdefault("connect_args", {})
+      params["connect_args"]["user"] = username
+      
+      if token:
+          params["connect_args"]["auth"] = JWTAuthentication(token)
+
+      return uri, params
+
+
 # Pre-register Trino as a database with user impersonation enabled
 # so Polaris RBAC is enforced via the logged-in user's identity.
+# File must be named import_datasources.yaml — the chart's default init script
+# checks for this exact name and runs: superset import_datasources -p /app/configs/import_datasources.yaml
 extraConfigs:
-  trino-database.yaml: |
+  import_datasources.yaml: |
     databases:
       - database_name: Trino-Lakehouse
         sqlalchemy_uri: trino://trino.query-engines.svc.cluster.local:8080/iceberg
         impersonate_user: true
         cache_timeout: 300
+
+init:
+  initscript: |-
+    #!/bin/sh
+    set -eu
+    echo "Running DB migrations..."
+    superset db upgrade
+    echo "Initializing roles..."
+    superset init
+    echo "Importing datasources..."
+    superset import_datasources -p /app/configs/import_datasources.yaml || true
+    echo "Granting Trino-Lakehouse access to Gamma role..."
+    python3 << 'PYEOF'
+    from superset.app import create_app
+    app = create_app()
+    with app.app_context():
+        from superset.extensions import db
+        from superset.models.core import Database as DB
+        sm = app.appbuilder.sm
+        trino_db = db.session.query(DB).filter_by(database_name="Trino-Lakehouse").first()
+        if trino_db:
+            gamma = sm.find_role("Gamma")
+            perm = sm.find_permission_view_menu("database_access", trino_db.perm)
+            if perm and gamma:
+                sm.add_permission_role(gamma, perm)
+                db.session.commit()
+                print("Granted Trino-Lakehouse access to Gamma")
+            else:
+                print("Permission or Gamma role not found, skipping grant")
+        else:
+            print("Trino-Lakehouse not found, skipping grant")
+    PYEOF
 
 postgresql:
   enabled: true

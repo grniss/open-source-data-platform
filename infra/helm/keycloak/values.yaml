@@ -19,4 +19,4 @@ database:
 
 admin:
   user: admin
-  password: admin123
+  password: keycloakadmin

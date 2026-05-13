@@ -15,7 +15,8 @@ data:
       "roles": {
         "realm": [
           { "name": "admin" },
-          { "name": "analyst" }
+          { "name": "analyst" },
+          { "name": "dashboard_viewer" }
         ]
       },
 
@@ -26,15 +27,23 @@ data:
           "enabled": true,
           "publicClient": false,
           "redirectUris": ["http://localhost:8088/*"],
-          "webOrigins": ["*"]
-        },
-        {
-          "clientId": "trino",
-          "secret": "trino-secret",
-          "enabled": true,
-          "publicClient": false,
-          "redirectUris": ["http://localhost:8088/*"],
-          "webOrigins": ["*"]
+          "webOrigins": ["*"],
+          "protocolMappers": [
+            {
+              "name": "realm-roles-as-groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-realm-role-mapper",
+              "consentRequired": false,
+              "config": {
+                "multivalued": "true",
+                "userinfo.token.claim": "true",
+                "id.token.claim": "false",
+                "access.token.claim": "false",
+                "claim.name": "groups",
+                "jsonType.label": "String"
+              }
+            }
+          ]
         }
       ],
 
@@ -45,7 +54,7 @@ data:
           "credentials": [
             {
               "type": "password",
-              "value": "test123",
+              "value": "analyst1",
               "temporary": false
             }
           ],
@@ -57,11 +66,23 @@ data:
           "credentials": [
             {
               "type": "password",
-              "value": "admin123",
+              "value": "admin",
               "temporary": false
             }
           ],
           "realmRoles": ["admin"]
+        },
+        {
+          "username": "viewer1",
+          "enabled": true,
+          "credentials": [
+            {
+              "type": "password",
+              "value": "viewer1",
+              "temporary": false
+            }
+          ],
+          "realmRoles": ["dashboard_viewer"]
         }
       ]
     }

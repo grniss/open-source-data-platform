@@ -1,5 +1,5 @@
 image:
-  tag: "459"
+  tag: "481"
 
 server:
   workers: 0    # coordinator-only for local; coordinator handles small queries alone
@@ -7,6 +7,7 @@ server:
     query:
       maxMemory: "1GB"
       maxMemoryPerNode: "512MB"
+    # authenticationType: "JWT"
 
 coordinator:
   resources:
@@ -36,14 +37,21 @@ catalogs:
     s3.path-style-access=true
     s3.aws-access-key=minio
     s3.aws-secret-key=minio12345
-# Resource groups + query-history event listener intentionally disabled for local
-# bring-up. The chart wires those properties incorrectly into config.properties
-# (causing "Configuration property ... was not used" errors). Re-add via the
-# chart's `coordinator.additionalConfigFiles` once we deploy a query-history
-# collector and need queue routing.
+
+# TODO: enable TLS for jwt auth + incoming authz forward from superset will be a great feature: https://github.com/trinodb/trino/issues/28571
+# additionalConfigProperties:
+#   - internal-communication.shared-secret=fixme
+#   - http-server.authentication.jwt.key-file=http://keycloak.auth.svc.cluster.local:8080/realms/dp-lmwn/protocol/openid-connect/certs
+#   - http-server.authentication.jwt.principal-field=preferred_username
+#   - http-server.authentication.jwt.user-mapping.pattern=(.*)
+#   - http-server.authentication.allow-insecure-over-http=true
+
 
 coordinator:
   additionalConfigFiles:
+
+    log.properties: |
+      io.trino=DEBUG
 
     # OPA access-control: routes every authorization check to OPA.
     # Policy: application/opa/policies/trino.rego
@@ -51,6 +59,15 @@ coordinator:
     access-control.properties: |
       access-control.name=opa
       opa.policy.uri=http://opa-opa-kube-mgmt.policy.svc.cluster.local:8181/v1/data/trino/allow
+
+    group-provider.properties: |
+      group-provider.name=file
+      file.group-file=/etc/trino/groups.properties
+
+    groups.properties: |
+      admin:admin
+      analyst:analyst1
+      dashboard_viewer:viewer1
 
 serviceMonitor:
   enabled: false   # off until kube-prometheus-stack CRDs proven stable

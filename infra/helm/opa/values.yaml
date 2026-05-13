@@ -14,6 +14,10 @@ bootstrapPolicies:
       input.context.identity.groups[_] == "analyst"
     }
 
+    allow := true if {
+      input.context.identity.groups[_] == "dashboard_viewer"
+    }
+
 useHttps: false
 
 # Disable kube-mgmt features

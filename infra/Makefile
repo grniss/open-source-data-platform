@@ -5,7 +5,7 @@ CLUSTER_NAME := data-platform
 KIND_CONFIG  := kind/cluster.yaml
 
 .PHONY: help check-tools cluster-up cluster-down namespaces \
-        repos diff sync apply destroy status \
+        repos diff sync apply destroy status pre-sync \
         port-forward-grafana port-forward-superset port-forward-airflow \
         polaris-mount-catalog rbac-publish-configmap trino-apply-password-secret
 
@@ -22,6 +22,7 @@ help:
 	@echo "  destroy ENV=local    Uninstall all releases"
 	@echo "  status               List installed releases per namespace"
 	@echo "  port-forward-*       Convenience port-forwards (Grafana, Superset, Airflow)"
+	@echo "  pre-sync             Apply Polaris secrets + build/load Superset image (auto-run by sync)"
 	@echo ""
 	@echo "Polaris ops (run AFTER sync):"
 	@echo "  polaris-mount-catalog        Bootstrap realm + apply desired-state catalog YAMLs"
@@ -51,7 +52,10 @@ repos:
 diff: namespaces repos
 	helmfile -e $(ENV) diff
 
-sync apply: namespaces repos
+pre-sync:
+	./scripts/pre-sync.sh
+
+sync apply: namespaces repos pre-sync
 	helmfile -e $(ENV) sync
 
 destroy:

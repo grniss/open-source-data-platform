@@ -9,10 +9,9 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$HERE/.." && pwd)
 CATALOGS_DIR="$ROOT/helm/polaris/files/desired-state/catalogs"
 
-# 1. Apply credential Secrets.
-kubectl apply -f "$HERE/manifests/secrets.yaml"
-
-# 2. Bootstrap realm + root principal if not already done.
+# 1. Bootstrap realm + root principal if not already done.
+# Note: credential Secrets (polaris-pg-creds, polaris-minio-creds, polaris-root-creds)
+# are applied by scripts/pre-sync.sh before helmfile sync.
 ROOT_ID=$(kubectl -n "$NS" get secret polaris-root-creds -o jsonpath='{.data.clientId}' | base64 -d)
 ROOT_SECRET=$(kubectl -n "$NS" get secret polaris-root-creds -o jsonpath='{.data.clientSecret}' | base64 -d)
 
@@ -126,6 +125,115 @@ for f in "$CATALOGS_DIR"/*.yaml; do
          -d '{"catalogRole":{"name":"catalog_admin"}}'
 
   echo "-> RBAC configured for '$NAME'"
+done
+
+# 6. Create spark-etl service principal + restricted RBAC (idempotent).
+echo "-> configuring spark-etl service principal"
+
+SPARK_STATUS=$(kubectl -n "$NS" exec deploy/polaris -- \
+  curl -sS -o /dev/null -w "%{http_code}" \
+       -H "Authorization: Bearer $TOKEN" \
+       http://localhost:8181/api/management/v1/principals/spark-etl)
+
+if [ "$SPARK_STATUS" = "200" ]; then
+  echo "-> spark-etl principal already exists, skipping creation"
+else
+  echo "-> creating spark-etl principal"
+  kubectl -n "$NS" exec deploy/polaris -- \
+    curl -sSf -X POST http://localhost:8181/api/management/v1/principals \
+         -H "Authorization: Bearer $TOKEN" \
+         -H "Content-Type: application/json" \
+         -d '{"principal":{"name":"spark-etl","type":"SERVICE"}}'
+  echo
+fi
+
+# Rotate credentials so we have a known secret to store in the K8s Secret.
+# The API returns {"clientId":..,"clientSecret":..} — capture it.
+echo "-> rotating spark-etl credentials"
+SPARK_CREDS=$(kubectl -n "$NS" exec deploy/polaris -- \
+  curl -sSf -X POST \
+       http://localhost:8181/api/management/v1/principals/spark-etl/credentials \
+       -H "Authorization: Bearer $TOKEN")
+SPARK_SECRET=$(echo "$SPARK_CREDS" | jq -r '.clientSecret')
+
+# Write the rotated secret back into the K8s Secret in spark-jobs namespace.
+kubectl -n spark-jobs create secret generic polaris-spark-creds \
+  --from-literal=POLARIS_CLIENT_ID=spark-etl \
+  --from-literal=POLARIS_CLIENT_SECRET="$SPARK_SECRET" \
+  --save-config \
+  --dry-run=client -o yaml | kubectl apply -f -
+echo "-> polaris-spark-creds secret updated in spark-jobs namespace"
+
+# Ensure spark-etl-role principal-role exists.
+PROLE_STATUS=$(kubectl -n "$NS" exec deploy/polaris -- \
+  curl -sS -o /dev/null -w "%{http_code}" \
+       -H "Authorization: Bearer $TOKEN" \
+       http://localhost:8181/api/management/v1/principal-roles/spark-etl-role)
+
+if [ "$PROLE_STATUS" = "404" ]; then
+  echo "-> creating spark-etl-role principal role"
+  kubectl -n "$NS" exec deploy/polaris -- \
+    curl -sSf -X POST http://localhost:8181/api/management/v1/principal-roles \
+         -H "Authorization: Bearer $TOKEN" \
+         -H "Content-Type: application/json" \
+         -d '{"principalRole":{"name":"spark-etl-role"}}'
+  echo
+else
+  echo "-> spark-etl-role already exists, skipping"
+fi
+
+# Assign spark-etl-role to the spark-etl principal (idempotent PUT).
+kubectl -n "$NS" exec deploy/polaris -- \
+  curl -sS -o /dev/null \
+       -X PUT \
+       http://localhost:8181/api/management/v1/principals/spark-etl/principal-roles \
+       -H "Authorization: Bearer $TOKEN" \
+       -H "Content-Type: application/json" \
+       -d '{"principalRole":{"name":"spark-etl-role"}}'
+
+# Grant spark-etl-role CATALOG_MANAGE_CONTENT on every catalog (scoped to etl
+# namespaces via table-level RBAC; catalog-role assignment is the entry point).
+for f in "$CATALOGS_DIR"/*.yaml; do
+  CAT_NAME=$(grep '^name:' "$f" | awk '{print $2}')
+
+  # Ensure spark-etl-catalog-role exists on this catalog.
+  CR_STATUS=$(kubectl -n "$NS" exec deploy/polaris -- \
+    curl -sS -o /dev/null -w "%{http_code}" \
+         -H "Authorization: Bearer $TOKEN" \
+         http://localhost:8181/api/management/v1/catalogs/"$CAT_NAME"/catalog-roles/spark-etl-catalog-role)
+
+  if [ "$CR_STATUS" = "404" ]; then
+    echo "-> creating spark-etl-catalog-role on '$CAT_NAME'"
+    kubectl -n "$NS" exec deploy/polaris -- \
+      curl -sSf -X POST \
+           http://localhost:8181/api/management/v1/catalogs/"$CAT_NAME"/catalog-roles \
+           -H "Authorization: Bearer $TOKEN" \
+           -H "Content-Type: application/json" \
+           -d '{"catalogRole":{"name":"spark-etl-catalog-role"}}'
+    echo
+  else
+    echo "-> spark-etl-catalog-role already exists on '$CAT_NAME', skipping"
+  fi
+
+  # Grant CATALOG_MANAGE_CONTENT (idempotent PUT).
+  kubectl -n "$NS" exec deploy/polaris -- \
+    curl -sS -o /dev/null \
+         -X PUT \
+         http://localhost:8181/api/management/v1/catalogs/"$CAT_NAME"/catalog-roles/spark-etl-catalog-role/grants \
+         -H "Authorization: Bearer $TOKEN" \
+         -H "Content-Type: application/json" \
+         -d '{"grant":{"type":"catalog","privilege":"CATALOG_MANAGE_CONTENT"}}'
+
+  # Assign spark-etl-catalog-role to spark-etl-role (idempotent PUT).
+  kubectl -n "$NS" exec deploy/polaris -- \
+    curl -sS -o /dev/null \
+         -X PUT \
+         http://localhost:8181/api/management/v1/principal-roles/spark-etl-role/catalog-roles/"$CAT_NAME" \
+         -H "Authorization: Bearer $TOKEN" \
+         -H "Content-Type: application/json" \
+         -d '{"catalogRole":{"name":"spark-etl-catalog-role"}}'
+
+  echo "-> spark-etl RBAC configured for '$CAT_NAME'"
 done
 
 echo

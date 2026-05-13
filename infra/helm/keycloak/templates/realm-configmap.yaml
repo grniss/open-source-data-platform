@@ -10,7 +10,7 @@ data:
       "enabled": true,
       "verifyEmail": false,
       "registrationEmailAsUsername": false,
-
+      "requiredActions": [],
 
       "roles": {
         "realm": [
@@ -23,6 +23,14 @@ data:
         {
           "clientId": "superset",
           "secret": "superset-secret",
+          "enabled": true,
+          "publicClient": false,
+          "redirectUris": ["http://localhost:8088/*"],
+          "webOrigins": ["*"]
+        },
+        {
+          "clientId": "trino",
+          "secret": "trino-secret",
           "enabled": true,
           "publicClient": false,
           "redirectUris": ["http://localhost:8088/*"],

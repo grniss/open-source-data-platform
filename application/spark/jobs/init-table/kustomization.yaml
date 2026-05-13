@@ -1,0 +1,9 @@
+namespace: spark-jobs
+resources:
+  - sparkapplication.yaml
+configMapGenerator:
+  - name: spark-job-init-table
+    files:
+      - job.py
+generatorOptions:
+  disableNameSuffixHash: true

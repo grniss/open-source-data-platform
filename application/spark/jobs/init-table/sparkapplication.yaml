@@ -1,0 +1,66 @@
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: init-table
+  namespace: spark-jobs
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  image: apache/spark:3.5.0-python3
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///opt/spark/work-dir/job.py
+  sparkVersion: "3.5.0"
+  deps:
+    packages:
+      - org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2
+      - org.apache.iceberg:iceberg-aws-bundle:1.5.2
+  sparkConf:
+    spark.sql.extensions: org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+    spark.sql.catalog.iceberg: org.apache.iceberg.spark.SparkCatalog
+    spark.sql.catalog.iceberg.catalog-impl: org.apache.iceberg.rest.RESTCatalog
+    spark.sql.catalog.iceberg.uri: http://polaris.data-catalog.svc.cluster.local:8181/api/catalog
+    spark.sql.catalog.iceberg.warehouse: dp-lmwn
+    spark.sql.catalog.iceberg.scope: PRINCIPAL_ROLE:ALL
+    spark.sql.catalog.iceberg.io-impl: org.apache.iceberg.aws.s3.S3FileIO
+    spark.sql.catalog.iceberg.s3.endpoint: http://minio.storage.svc.cluster.local:9000
+    spark.sql.catalog.iceberg.s3.path-style-access: "true"
+    spark.jars.ivy: /tmp/.ivy2
+  volumes:
+    - name: job-script
+      configMap:
+        name: spark-job-init-table
+  restartPolicy:
+    type: Never
+  driver:
+    serviceAccount: spark-operator-spark
+    cores: 1
+    memory: 512m
+    volumeMounts:
+      - name: job-script
+        mountPath: /opt/spark/work-dir/job.py
+        subPath: job.py
+    envFrom:
+      - secretRef:
+          name: polaris-spark-creds
+    env:
+      - name: AWS_ACCESS_KEY_ID
+        value: minio
+      - name: AWS_SECRET_ACCESS_KEY
+        value: minio12345
+  executor:
+    cores: 1
+    instances: 1
+    memory: 512m
+    volumeMounts:
+      - name: job-script
+        mountPath: /opt/spark/work-dir/job.py
+        subPath: job.py
+    envFrom:
+      - secretRef:
+          name: polaris-spark-creds
+    env:
+      - name: AWS_ACCESS_KEY_ID
+        value: minio
+      - name: AWS_SECRET_ACCESS_KEY
+        value: minio12345

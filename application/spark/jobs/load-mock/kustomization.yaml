@@ -1,0 +1,12 @@
+namespace: spark-jobs
+resources:
+  - sparkapplication.yaml
+configMapGenerator:
+  - name: spark-job-load-mock
+    files:
+      - job.py
+  - name: spark-data-orders
+    files:
+      - orders.csv
+generatorOptions:
+  disableNameSuffixHash: true

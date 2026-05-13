@@ -6,7 +6,7 @@ KIND_CONFIG  := kind/cluster.yaml
 
 .PHONY: help check-tools cluster-up cluster-down namespaces \
         repos diff sync apply destroy status pre-sync \
-        port-forward-grafana port-forward-superset port-forward-airflow \
+        port-forward-grafana port-forward-superset port-forward-keycloak \
         polaris-mount-catalog rbac-publish-configmap trino-apply-password-secret
 
 help:
@@ -21,12 +21,11 @@ help:
 	@echo "  apply  ENV=local     Same as sync (idempotent)"
 	@echo "  destroy ENV=local    Uninstall all releases"
 	@echo "  status               List installed releases per namespace"
-	@echo "  port-forward-*       Convenience port-forwards (Grafana, Superset, Airflow)"
-	@echo "  pre-sync             Apply Polaris secrets + build/load Superset image (auto-run by sync)"
+	@echo "  pre-sync             Apply Polaris secrets + build/load custom images (auto-run by sync)"
 	@echo ""
 	@echo "Polaris ops (run AFTER sync):"
 	@echo "  polaris-mount-catalog        Bootstrap realm + apply desired-state catalog YAMLs"
-	@echo "  rbac-publish-configmap       Publish rbac.yaml as a ConfigMap for the rbac_sync DAG"
+	@echo "  rbac-publish-configmap       Publish rbac.yaml as a ConfigMap"
 	@echo "  trino-apply-password-secret  Create/update trino-password-db Secret from files/password.db"
 
 check-tools:
@@ -62,36 +61,10 @@ destroy:
 	helmfile -e $(ENV) destroy
 
 status:
-	@for ns in data-catalog query-engines spark-jobs orchestration storage bi observability; do \
+	@for ns in data-catalog query-engines spark-jobs storage bi observability; do \
 	  echo "== $$ns =="; helm list -n $$ns; \
 	done
-
-port-forward-grafana:
-	kubectl -n observability port-forward svc/kube-prometheus-stack-grafana 3000:80
-
-port-forward-superset:
-	kubectl -n bi port-forward svc/superset 8088:8088
-
-port-forward-airflow:
-	kubectl -n orchestration port-forward svc/airflow-webserver 8081:8080
 
 # -------- Polaris catalog mount --------
 polaris-mount-catalog:
 	./scripts/polaris-mount-catalog.sh
-
-# -------- RBAC ConfigMap --------
-# Publishes rbac.yaml so the Airflow rbac_sync DAG can read it in-cluster.
-# Re-run whenever rbac.yaml changes.
-rbac-publish-configmap:
-	kubectl -n data-catalog create configmap polaris-rbac-desired-state \
-	  --from-file=rbac.yaml=helm/polaris/files/desired-state/rbac.yaml \
-	  --dry-run=client -o yaml | kubectl apply -f -
-
-# -------- Trino password Secret --------
-# Creates or replaces the trino-password-db Secret from helm/trino/files/password.db.
-# Run AFTER `make sync ENV=local`.
-trino-apply-password-secret:
-	kubectl -n query-engines create secret generic trino-password-db \
-	  --from-file=password.db=helm/trino/files/password.db \
-	  --dry-run=client -o yaml | kubectl apply -f -
-

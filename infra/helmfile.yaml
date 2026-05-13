@@ -3,8 +3,6 @@ repositories:
     url: https://trinodb.github.io/charts
   - name: spark-operator
     url: https://kubeflow.github.io/spark-operator
-  - name: apache-airflow
-    url: https://airflow.apache.org
   - name: superset
     url: https://apache.github.io/superset
   - name: prometheus-community
@@ -34,7 +32,7 @@ environments:
 
 helmDefaults:
   wait: true
-  timeout: 1800     # 30 min — Airflow migrations can take >10 min on local kind
+  timeout: 600
   createNamespace: true
   atomic: false
 
@@ -77,16 +75,6 @@ releases:
     chart: spark-operator/spark-operator
     version: 1.4.6
     values: [helm/spark-operator/values.yaml]
-
-  # -------- Orchestration & Modeling --------
-  - name: airflow
-    namespace: orchestration
-    chart: apache-airflow/airflow
-    version: 1.21.0
-    values: [helm/airflow/values.yaml]
-    needs:
-      - query-engines/trino
-      - spark-jobs/spark-operator
 
   # -------- Local S3 (dev/test only — replace with real S3 in prod) --------
   - name: minio

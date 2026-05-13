@@ -18,7 +18,7 @@ batchScheduler:
 # Default service account used by submitted SparkApplications
 sparkServiceAccount:
   create: true
-  name: spark
+  name: spark-operator-spark   # chart prefixes release name; actual SA is spark-operator-spark
 
 resources:
   requests: { cpu: "100m", memory: "256Mi" }

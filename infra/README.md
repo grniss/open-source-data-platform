@@ -20,7 +20,6 @@ infra/
     ├── polaris/                  # Iceberg REST catalog + RBAC
     ├── trino/                    # interactive engine
     ├── spark-operator/           # batch + ingestion engine controller
-    ├── airflow/                  # orchestration (maintenance, dbt, spark ingestion)
     ├── minio/                    # local S3 (dev only — disabled in prod)
     ├── superset/                 # BI / dashboards
     ├── kube-prometheus-stack/    # Prometheus + Grafana + Alertmanager
@@ -67,7 +66,6 @@ Override values per environment in [`envs/prod.yaml`](envs/prod.yaml).
 | Tear down cluster | `make cluster-down` |
 | Open Grafana (3000) | `make port-forward-grafana` |
 | Open Superset (8088) | `make port-forward-superset` |
-| Open Airflow (8081) | `make port-forward-airflow` |
 
 ## Namespace map
 
@@ -76,7 +74,6 @@ Override values per environment in [`envs/prod.yaml`](envs/prod.yaml).
 | `data-catalog` | Polaris |
 | `query-engines` | Trino |
 | `spark-jobs` | Spark Operator + on-demand Spark applications (ingestion + batch) |
-| `orchestration` | Airflow |
 | `storage` | MinIO (local-only S3, disabled in `prod`) |
 | `bi` | Superset |
 | `observability` | Prometheus, Grafana, Loki, OpenCost |
@@ -84,10 +81,9 @@ Override values per environment in [`envs/prod.yaml`](envs/prod.yaml).
 ## Release order (encoded via `needs:` in helmfile.yaml)
 
 ```
-polaris           ─┐
-                   ├─▶ trino ─┐
-spark-operator ────┘          ├─▶ airflow
-                              ├─▶ superset
+polaris ──▶ trino ──▶ superset
+keycloak (depends on shared-postgresql)
+opa      (independent)
 kube-prometheus-stack ──┬─▶ loki
                         └─▶ opencost
 minio   (local only — `condition: minio.enabled`, off in prod)
@@ -103,7 +99,6 @@ minio   (local only — `condition: minio.enabled`, off in prod)
   (set in `envs/local.yaml`). In `envs/prod.yaml` it's `false` and Iceberg
   points at real S3 instead.
 - **Ingestion** is performed by Spark jobs submitted to the Spark Operator
-  (no Airbyte). Each source has a small Spark job + Airflow DAG under
-  `application/`.
+  (no Airbyte). Each source has a small Spark job under `application/`.
 - All charts expose `serviceMonitor` so kube-prometheus-stack scrapes them
   automatically — no extra wiring needed.

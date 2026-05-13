@@ -6,7 +6,6 @@ nodes:
     extraPortMappings:
       - { containerPort: 30080, hostPort: 8080, protocol: TCP } # Trino
       - { containerPort: 30088, hostPort: 8088, protocol: TCP } # Superset
-      - { containerPort: 30808, hostPort: 8081, protocol: TCP } # Airflow
       - { containerPort: 30300, hostPort: 3000, protocol: TCP } # Grafana
   - role: worker
   - role: worker

@@ -7,14 +7,6 @@ Empty for now — populated in subsequent steps.
 
 ```
 application/
-├── airflow/
-│   └── dags/
-│       ├── iceberg_maintenance.py     # compact / expire / orphan / manifest
-│       ├── dbt_build.py               # runs `dbt build` against Trino + Spark
-│       ├── spark_ingestion.py         # submits Spark ingestion jobs per source
-│       ├── manifest_to_polaris.py     # dbt tags → Polaris policy YAMLs
-│       └── lib/
-│           └── iceberg_procedures.py  # shared Spark-submit helpers
 ├── spark/
 │   └── ingestion/                     # one PySpark job per external source
 │       ├── postgres_orders.py
@@ -37,10 +29,6 @@ application/
 
 ## Relationship to infra
 
-The infra layer provides Kubernetes services (Airflow, Trino, Polaris,
-Spark Operator, etc.). This application layer provides the **content** those
-services run: DAGs, dbt models, Spark ingestion jobs, RBAC policies,
-configuration files.
-
-Airflow loads DAGs from this folder via gitSync (configured in
-[`../infra/helm/airflow/values.yaml`](../infra/helm/airflow/values.yaml)).
+The infra layer provides Kubernetes services (Trino, Polaris, Spark Operator,
+Superset, etc.). This application layer provides the **content** those
+services run: dbt models, Spark ingestion jobs, RBAC policies, configuration files.

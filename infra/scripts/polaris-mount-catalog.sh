@@ -136,29 +136,31 @@ SPARK_STATUS=$(kubectl -n "$NS" exec deploy/polaris -- \
        http://localhost:8181/api/management/v1/principals/spark-etl)
 
 if [ "$SPARK_STATUS" = "200" ]; then
-  echo "-> spark-etl principal already exists, skipping creation"
-else
-  echo "-> creating spark-etl principal"
+  # Principal exists — delete and recreate to obtain fresh credentials.
+  # Polaris 1.4.1 does not expose a credential rotation REST endpoint;
+  # the only way to get a new clientSecret is from the creation response.
+  echo "-> spark-etl principal exists, recreating to obtain fresh credentials"
   kubectl -n "$NS" exec deploy/polaris -- \
-    curl -sSf -X POST http://localhost:8181/api/management/v1/principals \
-         -H "Authorization: Bearer $TOKEN" \
-         -H "Content-Type: application/json" \
-         -d '{"principal":{"name":"spark-etl","type":"SERVICE"}}'
-  echo
+    curl -sS -X DELETE \
+         "http://localhost:8181/api/management/v1/principals/spark-etl" \
+         -H "Authorization: Bearer $TOKEN" > /dev/null
 fi
 
-# Rotate credentials so we have a known secret to store in the K8s Secret.
-# The API returns {"clientId":..,"clientSecret":..} — capture it.
-echo "-> rotating spark-etl credentials"
+echo "-> creating spark-etl principal"
 SPARK_CREDS=$(kubectl -n "$NS" exec deploy/polaris -- \
-  curl -sSf -X POST \
-       http://localhost:8181/api/management/v1/principals/spark-etl/credentials \
-       -H "Authorization: Bearer $TOKEN")
-SPARK_SECRET=$(echo "$SPARK_CREDS" | jq -r '.clientSecret')
+  curl -sSf -X POST http://localhost:8181/api/management/v1/principals \
+       -H "Authorization: Bearer $TOKEN" \
+       -H "Content-Type: application/json" \
+       -d '{"principal":{"name":"spark-etl","type":"SERVICE"}}')
+echo
+SPARK_CLIENT_ID=$(echo "$SPARK_CREDS" | jq -r '.credentials.clientId')
+SPARK_SECRET=$(echo "$SPARK_CREDS" | jq -r '.credentials.clientSecret')
 
-# Write the rotated secret back into the K8s Secret in spark-jobs namespace.
+# Write credentials into the K8s Secret in spark-jobs namespace.
+# POLARIS_CLIENT_ID is the UUID clientId (not the principal name) — Polaris
+# OAuth2 token endpoint authenticates by clientId, not by principal name.
 kubectl -n spark-jobs create secret generic polaris-spark-creds \
-  --from-literal=POLARIS_CLIENT_ID=spark-etl \
+  --from-literal=POLARIS_CLIENT_ID="$SPARK_CLIENT_ID" \
   --from-literal=POLARIS_CLIENT_SECRET="$SPARK_SECRET" \
   --save-config \
   --dry-run=client -o yaml | kubectl apply -f -
